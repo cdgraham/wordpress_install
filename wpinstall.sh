@@ -4,43 +4,41 @@
 #    Script to create a standard wordpress site.
 #
 #       Name: wpinstall.sh
+#
 #       Author: Christopher Graham
+#
 #       Usage: wpinstall.sh
-#       Version: 0.1
 #
 ################################################################################
 # Setup Defaults
 typeset -A config # init array
 config=( # set default values in config array
-  [ROOTUSER]="root"
-  [ROOTPASS]=""
-  [DBHOST]="localhost"
-  [DBPORT]=3306
-  [ADMINUSER]=adminuser
-	[ADMINEMAIL]=chris@chillichalli.com
+    [ROOTUSER]="root"
+    [ROOTPASS]=""
+    [DBHOST]="localhost"
+    [DBPORT]=3306
+    [ADMINUSER]=adminuser
+    [ADMINEMAIL]=email@example.com
 )
 
 while read line
 do
-  if echo $line | grep -F = &>/dev/null
-  then
-    varname=$(echo "$line" | cut -d '=' -f 1)
-    config[$varname]=$(echo "$line" | cut -d '=' -f 2-)
-  fi
-done < wpinstall.conf
+    if echo $line | grep -F = &>/dev/null
+    then
+        varname=$(echo "$line" | cut -d '=' -f 1)
+        config[$varname]=$(echo "$line" | cut -d '=' -f 2-)
+    fi
+done < /usr/local/sbin/wordpress/wpinstall.conf
 
 # Override any Global variables here
-# Global default log file set in .chillichalli uncomment to override for individual scripts
+# Global default log file set in wpinstall.conf uncomment to override for individual scripts
 #WP_LOG_FILE=/var/log/wordpress
-LOCATION=
 PASSWORDLEN=32
-SITETITLE=
-URL=
 
 WP="$(which wp)"
 if [ -z "$WP" ]; then
-  echo "Error: wp not found"
-  exit 1
+    echo "Error: wp not found"
+    exit 1
 fi
 
 # Clear screen
@@ -61,15 +59,10 @@ read -e -p "Wordpress Admin Password: " -i "$ADMINPASS" ADMINPASS
 read -e -p "Wordpress Admin Email: " -i "${config[ADMINEMAIL]}" config[ADMINEMAIL]
 echo
 
-# Remove Spaces from SITETITLE
-#SITETITLE="${SITETITLE// /\ }"
-
 LOCATION=/var/www/$URL/httpdocs
 SHORTURL=${URL:0:27}
-#DBNAME=${NOTLD%.*}_wp
-DBNAME=${SHORTURL%.*}_wp
-#DBUSER=${URL%.*}_user
-DBUSER=${SHORTURL%.*}_user
+DBNAME=${SHORTURL%%.*}_wp
+DBUSER=${SHORTURL%%.*}_user
 DBPREFIX=wp_`date |md5sum |head -c 8`_
 
 # Create Directory
@@ -86,13 +79,14 @@ read -e -p "Database User: " -i "$DBUSER" DBUSER
 read -e -p "Database Password: " -i "$DBPASS" DBPASS
 echo
 
-read -p "Create Database? (Y/n) " -n 1 -r
+read -p "Create Database? (y/n) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-  printf "Creating Database\n"
+	printf "Creating Database\n"
 	read -e -p "Root User: " -i "${config[ROOTUSER]}" config[ROOTUSER]
-	read -e -p "Root Password: " -i "${config[ROOTPASS]}" config[ROOTPASS]	
+	read -e -p "Root Password: " -i "${config[ROOTPASS]}" config[ROOTPASS]
+	
 	mysql --user=${config[ROOTUSER]} --password=${config[ROOTPASS]} --host=${config[DBHOST]} --port=${config[DBPORT]} <<EOF
 CREATE DATABASE $DBNAME;
 CREATE USER '$DBUSER'@'%' IDENTIFIED BY '$DBPASS';
@@ -100,6 +94,11 @@ GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBUSER'@'%';
 FLUSH PRIVILEGES;
 EXIT
 EOF
+fi
+
+if [[ $? -ne "0" ]]; then
+	echo "MySQL error - Exiting"
+	exit 2
 fi
 
 printf "Installing Wordpress\n"
@@ -113,22 +112,26 @@ wp --allow-root core download
 wp --allow-root core config --dbname=$DBNAME --dbuser=$DBUSER --dbpass=$DBPASS --dbhost=${config[DBHOST]} --dbprefix=$DBPREFIX
 
 # Install wordpress
-wp --allow-root core install --url=$URL --title='$SITETITLE' --admin_user=${config[ADMINUSER]} --admin_password=$ADMINPASS --admin_e
-mail=${config[ADMINEMAIL]}
+wp --allow-root core install --url=$URL --title='"$SITETITLE"' --admin_user=${config[ADMINUSER]} --admin_password=$ADMINPASS --admin
+_email=${config[ADMINEMAIL]}
 
 # Install WP Admin Panel plugin
 printf "Installing Wordpress plugins (and removing Hello Dolly)\n"
-#wp --allow-root plugin install iwp-client --activate
 wp --allow-root plugin delete hello
-wp --allow-root plugin install /usr/local/src/wordpress/elegant-themes-updater.zip --activate
 wp --allow-root plugin install elementor --activate
+wp --allow-root plugin install /usr/local/src/wordpress/elementor-pro.zip --activate
+wp --allow-root plugin install wordfence --activate
 
-printf "Installing Divi theme\n"
-wp --allow-root theme install /usr/local/src/wordpress/Divi.zip
-wp --allow-root theme install /usr/local/src/wordpress/ChilliChalli-Divi-0.2.zip --activate
-wp --allow-root theme delete twentyfifteen
-wp --allow-root theme delete twentysixteen
-wp --allow-root theme delete twentyseventeen
+printf "Installing Astra theme and removing standard ones\n"
+themes=`ls -l $LOCATION/wp-content/themes | grep '^d' | awk '{print $9}'`
+
+wp --allow-root theme install /usr/local/src/wordpress/Astra.zip --activate
+
+for theme in $themes
+do
+	echo "Removing $theme theme\n"
+	wp --allow-root theme delete $theme
+done
 
 printf "Removing Default posts and pages\n"
 wp --allow-root post delete $(wp --allow-root post list --post_type='post' --format=ids)
@@ -151,11 +154,11 @@ read -p "Add Site to Automated Scripts? (y/N) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-  cd /usr/local/sbin/wordpress
-  # Update all the sites files adding the new site
-  for sites in `ls *.sites` ; do
-    sed -i '/SITES=(/a \\t"'$URL'"' $sites;
-  done
+	cd /usr/local/sbin/wordpress
+	# Update all the sites files adding the new site
+	for sites in `ls *.sites` ; do
+		sed -i '/SITES=(/a \\t"'$URL'"' $sites;
+	done
 fi
 
 # Add this site to Nginx
@@ -163,25 +166,33 @@ read -p "Add Site to Nginx? This will stop and start Nginx (y/N) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-  # Go to the Nginx site config directory
-  cd /etc/nginx/sites-available/
+	# Go to the Nginx site config directory
+	cd /etc/nginx/sites-available/
 
-  # Copy the wordpress template to the url of the site
-  cp wordpress-example.com $URL
+	# Copy the wordpress template to the url of the site
+	cp wordpress-example.com $URL
 
-  # Change the example.com url to the actual url
-  sed -i 's/EXAMPLE.com/'$URL'/g' $URL
+	# Change the example.com url to the actual url
+	sed -i 's/EXAMPLE.com/'$URL'/g' $URL
 
-  # Enable the site
-  ln -s /etc/nginx/sites-available/$URL /etc/nginx/sites-enabled/$URL
+	# Enable the site
+	ln -s /etc/nginx/sites-available/$URL /etc/nginx/sites-enabled/$URL
 
-  # Stop Nginx to get SSL from Letsencrypt
-  systemctl stop nginx
+	# Reload Nginx to get SSL from Letsencrypt
+	systemctl reload nginx
 
-  certbot certonly --standalone -d $URL -d www.$URL
+	#certbot certonly --standalone -d $URL -d www.$URL
+	letsencrypt certonly --webroot --agree-tos --email ${config[ADMINEMAIL]} -w /var/www/letsencrypt -d $URL -d www.$URL
 
-  # Start Nginx to pick up new site
-  systemctl start nginx
+	# Enable the Certificates
+	sed -i 's/\#ssl_certificate/ssl_certificate/g' /etc/nginx/sites-enabled/$URL 
+	sed -i 's/\#return/return/' /etc/nginx/sites-enabled/$URL 
+
+	# Start Nginx to pick up new site
+	systemctl reload nginx
 fi
 
+echo "Your Login details:"
+echo "Wordpress Admin User: $ADMINUSER"
+echo "Wordpress Admin Password: $ADMINPASS"
 # End wordpress install
