@@ -107,25 +107,24 @@ printf "Installing Wordpress\n"
 cd $LOCATION
 
 # Get latest wordpress software
-wp --allow-root core download
+sudo -u www-data wp core download
 
 # Configue wordpress 
-wp --allow-root core config --dbname=$DBNAME --dbuser=$DBUSER --dbpass=$DBPASS --dbhost=${config[DBHOST]} --dbprefix=$DBPREFIX  --dbcharset=utf8mb4 --dbcollate=utf8mb4_unicode_520_ci
+sudo -u www-data wp core config --dbname=$DBNAME --dbuser=$DBUSER --dbpass=$DBPASS --dbhost=${config[DBHOST]} --dbprefix=$DBPREFIX  --dbcharset=utf8mb4 --dbcollate=utf8mb4_unicode_520_ci
 
 # Install wordpress
-wp --allow-root core install --url=$WWWURL --title='"$SITETITLE"' --admin_user=${config[ADMINUSER]} --admin_password=$ADMINPASS --admin
-_email=${config[ADMINEMAIL]}
+sudo -u www-data wp core install --url=$WWWURL --title='"$SITETITLE"' --admin_user=${config[ADMINUSER]} --admin_password=$ADMINPASS --admin_email=${config[ADMINEMAIL]}
 
 # Install WP Admin Panel plugin
 printf "Installing Wordpress plugins (and removing Hello Dolly)\n"
-wp --allow-root plugin delete hello
-wp --allow-root plugin install elementor --activate
-wp --allow-root plugin install wordpress-seo --activate
+sudo -u www-data wp plugin delete hello
+sudo -u www-data wp plugin install elementor --activate
+sudo -u www-data wp plugin install wordpress-seo --activate
 
 printf "Installing Astra theme and removing standard ones\n"
 themes=`ls -l $LOCATION/wp-content/themes | grep '^d' | awk '{print $9}'`
 
-wp --allow-root theme install astra --activate
+sudo -u www-data wp theme install astra --activate
 
 for theme in $themes
 do
@@ -134,8 +133,8 @@ do
 done
 
 printf "Removing Default posts and pages\n"
-wp --allow-root post delete $(wp --allow-root post list --post_type='post' --format=ids)
-wp --allow-root post delete $(wp --allow-root post list --post_type='page' --format=ids)
+sudo -u www-data wp post delete $(wp --allow-root post list --post_type='post' --format=ids)
+sudo -u www-data wp post delete $(wp --allow-root post list --post_type='page' --format=ids)
 
 # Change owner
 chown -R www-data:www-data *
