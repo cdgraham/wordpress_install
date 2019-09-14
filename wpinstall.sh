@@ -52,17 +52,18 @@ ADMINPASS=`tr -cd '[:alnum:]' < /dev/urandom | fold -w$PASSWORDLEN | head -n1`
 echo
 
 # Get Wordpress Details
-read -e -p "Wordpress URL: " -i "$URL" URL
+read -e -p "Wordpress Domain: " -i "$DOMAIN" DOMAIN
 read -e -p "Wordpress Site Title: " -i "$SITETITLE" SITETITLE
 read -e -p "Wordpress Admin User: " -i "${config[ADMINUSER]}" config[ADMINUSER]
 read -e -p "Wordpress Admin Password: " -i "$ADMINPASS" ADMINPASS
 read -e -p "Wordpress Admin Email: " -i "${config[ADMINEMAIL]}" config[ADMINEMAIL]
 echo
 
-LOCATION=/var/www/$URL/httpdocs
-SHORTURL=${URL:0:27}
-DBNAME=${SHORTURL%%.*}_wp
-DBUSER=${SHORTURL%%.*}_user
+LOCATION=/var/www/$DOMAIN/httpdocs
+WWWURL=www.${DOMAIN}
+SHORTDOMAIN=${DOMAIN:0:27}
+DBNAME=${SHORTDOMAIN%%.*}_wp
+DBUSER=${SHORTDOMAIN%%.*}_user
 DBPREFIX=wp_`date |md5sum |head -c 8`_
 
 # Create Directory
@@ -109,10 +110,10 @@ cd $LOCATION
 wp --allow-root core download
 
 # Configue wordpress 
-wp --allow-root core config --dbname=$DBNAME --dbuser=$DBUSER --dbpass=$DBPASS --dbhost=${config[DBHOST]} --dbprefix=$DBPREFIX
+wp --allow-root core config --dbname=$DBNAME --dbuser=$DBUSER --dbpass=$DBPASS --dbhost=${config[DBHOST]} --dbprefix=$DBPREFIX  --dbcharset=utf8mb4 --dbcollate=utf8mb4_unicode_520_ci
 
 # Install wordpress
-wp --allow-root core install --url=$URL --title='"$SITETITLE"' --admin_user=${config[ADMINUSER]} --admin_password=$ADMINPASS --admin
+wp --allow-root core install --url=$WWWURL --title='"$SITETITLE"' --admin_user=${config[ADMINUSER]} --admin_password=$ADMINPASS --admin
 _email=${config[ADMINEMAIL]}
 
 # Install WP Admin Panel plugin
@@ -147,7 +148,7 @@ find . -type d -exec chmod 755 {} +
 chmod 600 wp-config.php
 
 # add the domain name to the local host file
-#echo -e "127.0.0.1\t$URL" >> /etc/hosts
+#echo -e "127.0.0.1\t$" >> /etc/hosts
 
 # Add this site to the automated scripts
 read -p "Add Site to Automated Scripts? (y/N) " -n 1 -r
@@ -157,7 +158,7 @@ then
 	cd /usr/local/sbin/wordpress
 	# Update all the sites files adding the new site
 	for sites in `ls *.sites` ; do
-		sed -i '/SITES=(/a \\t"'$URL'"' $sites;
+		sed -i '/SITES=(/a \\t"'$DOMAIN'"' $sites;
 	done
 fi
 
@@ -170,23 +171,23 @@ then
 	cd /etc/nginx/sites-available/
 
 	# Copy the wordpress template to the url of the site
-	cp wordpress-example.com $URL
+	cp wordpress-example.com $DOMAIN
 
 	# Change the example.com url to the actual url
-	sed -i 's/EXAMPLE.com/'$URL'/g' $URL
+	sed -i 's/EXAMPLE.com/'$DOMAIN'/g' $DOMAIN
 
 	# Enable the site
-	ln -s /etc/nginx/sites-available/$URL /etc/nginx/sites-enabled/$URL
+	ln -s /etc/nginx/sites-available/$DOMAIN /etc/nginx/sites-enabled/$DOMAIN
 
 	# Reload Nginx to get SSL from Letsencrypt
 	systemctl reload nginx
 
-	#certbot certonly --standalone -d $URL -d www.$URL
-	letsencrypt certonly --webroot --agree-tos --email ${config[ADMINEMAIL]} -w /var/www/letsencrypt -d $URL -d www.$URL
+	#certbot certonly --standalone -d $DOMAIN -d WWWURL
+	letsencrypt certonly --webroot --agree-tos --email ${config[ADMINEMAIL]} -w /var/www/letsencrypt -d $DOMAIN -d $WWWURL
 
 	# Enable the Certificates
-	sed -i 's/\#ssl_certificate/ssl_certificate/g' /etc/nginx/sites-enabled/$URL 
-	sed -i 's/\#return/return/' /etc/nginx/sites-enabled/$URL 
+	sed -i 's/\#ssl_certificate/ssl_certificate/g' /etc/nginx/sites-enabled/$DOMAIN 
+	sed -i 's/\#return/return/' /etc/nginx/sites-enabled/$DOMAIN 
 
 	# Start Nginx to pick up new site
 	systemctl reload nginx
