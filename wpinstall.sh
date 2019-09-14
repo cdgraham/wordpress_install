@@ -120,13 +120,12 @@ _email=${config[ADMINEMAIL]}
 printf "Installing Wordpress plugins (and removing Hello Dolly)\n"
 wp --allow-root plugin delete hello
 wp --allow-root plugin install elementor --activate
-wp --allow-root plugin install /usr/local/src/wordpress/elementor-pro.zip --activate
-wp --allow-root plugin install wordfence --activate
+wp --allow-root plugin install wordpress-seo --activate
 
 printf "Installing Astra theme and removing standard ones\n"
 themes=`ls -l $LOCATION/wp-content/themes | grep '^d' | awk '{print $9}'`
 
-wp --allow-root theme install /usr/local/src/wordpress/Astra.zip --activate
+wp --allow-root theme install astra --activate
 
 for theme in $themes
 do
