@@ -133,8 +133,8 @@ do
 done
 
 printf "Removing Default posts and pages\n"
-sudo -u www-data wp post delete $(wp --allow-root post list --post_type='post' --format=ids)
-sudo -u www-data wp post delete $(wp --allow-root post list --post_type='page' --format=ids)
+sudo -u www-data wp post delete $(sudo -u www-data wp post list --post_type='post' --format=ids)
+sudo -u www-data wp post delete $(sudo -u www-data wp post list --post_type='page' --format=ids)
 
 # Change owner
 chown -R www-data:www-data *
