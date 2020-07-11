@@ -20,15 +20,23 @@ config=( # set default values in config array
     [ADMINUSER]=adminuser
     [ADMINEMAIL]=email@example.com
 )
+$configfile=/usr/local/sbin/wordpress/wpinstall.conf
 
-while read line
-do
-    if echo $line | grep -F = &>/dev/null
-    then
-        varname=$(echo "$line" | cut -d '=' -f 1)
-        config[$varname]=$(echo "$line" | cut -d '=' -f 2-)
-    fi
-done < /usr/local/sbin/wordpress/wpinstall.conf
+# Clear screen
+clear
+
+if [ -f $configfile ]; then
+    while read line
+    do
+        if echo $line | grep -F = &>/dev/null
+        then
+            varname=$(echo "$line" | cut -d '=' -f 1)
+            config[$varname]=$(echo "$line" | cut -d '=' -f 2-)
+        fi
+    done < $configfile
+else
+    printf "$configfile does not exist.\n"
+fi
 
 # Override any Global variables here
 # Global default log file set in wpinstall.conf uncomment to override for individual scripts
@@ -41,8 +49,6 @@ if [ -z "$WP" ]; then
     exit 1
 fi
 
-# Clear screen
-clear
 printf "Install a new Wordpress Site\n"
 
 # Password Length
