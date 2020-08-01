@@ -175,7 +175,7 @@ then
 	cd /etc/nginx/sites-available/
 
 	# Copy the wordpress template to the url of the site
-	cp wordpress-example.com $DOMAIN
+	cp wordpress-example-nginx.com $DOMAIN
 
 	# Change the example.com url to the actual url
 	sed -i 's/EXAMPLE.com/'$DOMAIN'/g' $DOMAIN
